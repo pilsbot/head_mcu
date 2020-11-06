@@ -29,10 +29,12 @@ void setup()
 }
 
 //We average the analog reading to elminate some of the noise
-int averageAnalog(int pin){
-  int v=0;
-  for(int i=0; i<16; i++) v+= analogRead(pin);
-  return v/16;
+uint16_t averageAnalog(int pin){
+    static constexpr uint8_t average_samples = 16;
+    uint16_t v=0;
+    for(uint16_t i=0; i<average_samples; i++)
+        v+= analogRead(pin)/average_samples;
+    return v;
 }
 
 void loop()
