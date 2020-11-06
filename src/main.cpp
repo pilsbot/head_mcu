@@ -6,8 +6,6 @@
  * an analog value into ROS in a pinch.
  */
 
-
-#include <Arduino.h>
 #define USE_USBCON
 #include <ros.h>
 #include <rosserial_arduino/Adc.h>
@@ -29,12 +27,13 @@ void setup()
 }
 
 //We average the analog reading to elminate some of the noise
-uint16_t averageAnalog(int pin){
-    static constexpr uint8_t average_samples = 16;
-    uint16_t v=0;
-    for(uint16_t i=0; i<average_samples; i++)
-        v+= analogRead(pin)/average_samples;
-    return v;
+uint16_t averageAnalog(int pin)
+{
+  static constexpr uint8_t average_samples = 16;
+  uint16_t v = 0;
+  for (uint16_t i = 0; i < average_samples; i++)
+    v += analogRead(pin) / average_samples;
+  return v;
 }
 
 void loop()
@@ -46,5 +45,5 @@ void loop()
   p.publish(&adc_msg);
 
   nh.spinOnce();
-  delay(2);
+  delay(5);
 }
