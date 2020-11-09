@@ -18,6 +18,7 @@ ros::Publisher p("adc", &adc_msg);
 void setup()
 {
   pinMode(13, OUTPUT);
+  pinMode(A0, INPUT);
   pinMode(2, INPUT_PULLUP);
   pinMode(3, INPUT_PULLUP);
 
