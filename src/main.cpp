@@ -1,9 +1,6 @@
 /*
- * rosserial ADC Example
+ * Originally rosserial ADC Example
  *
- * This is a poor man's Oscilloscope.  It does not have the sampling
- * rate or accuracy of a commerical scope, but it is great to get
- * an analog value into ROS in a pinch.
  */
 
 #define USE_USBCON
@@ -17,6 +14,7 @@ ros::Publisher p("adc", &adc_msg);
 
 void setup()
 {
+  //analogReadResolution(10);	// pro micro is 10bit ADC
   pinMode(13, OUTPUT);
   pinMode(A0, INPUT);
   pinMode(2, INPUT_PULLUP);
@@ -30,15 +28,20 @@ void setup()
 //We average the analog reading to elminate some of the noise
 uint16_t averageAnalog(int pin)
 {
-  static constexpr uint8_t average_samples = 16;
+  // 10 Bit analog resolution, 16 bit sample size, so we have more space
+  static constexpr uint8_t average_samples = pow(2, 16-10);
   uint16_t v = 0;
   for (uint16_t i = 0; i < average_samples; i++)
-    v += analogRead(pin) / average_samples;
+    v += analogRead(pin); // / average_samples;
   return v;
 }
 
 void loop()
 {
+  static bool led = false;
+  digitalWrite(13, led);
+  led = !led;
+  
   adc_msg.adc0 = averageAnalog(A0);
   adc_msg.adc1 = digitalRead(2);
   adc_msg.adc2 = digitalRead(3);
