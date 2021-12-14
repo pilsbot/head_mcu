@@ -21,7 +21,7 @@ void setup()
 
   Serial.begin(115200);
 
-  while(!Serial.readBytes(
+  while(!Serial || !Serial.readBytes(
       reinterpret_cast<uint8_t*>(&desired_cycle_duration_ms), sizeof(UpdatePeriodMs))){
   };
 }
