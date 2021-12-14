@@ -3,33 +3,36 @@
  *
  */
 
+#include "data_frame.hpp"
+
 #define USE_USBCON
-#include <ros.h>
-#include <rosserial_arduino/Adc.h>
+#include <Arduino.h>
 
-ros::NodeHandle nh;
-
-rosserial_arduino::Adc adc_msg;
-ros::Publisher p("adc", &adc_msg);
+using namespace head_mcu;
+UpdatePeriodMs desired_cycle_duration_ms;
+Frame frame;
 
 void setup()
 {
   //analogReadResolution(10);	// pro micro is 10bit ADC
-  pinMode(13, OUTPUT);
   pinMode(A0, INPUT);
   pinMode(2, INPUT_PULLUP);
   pinMode(3, INPUT_PULLUP);
 
-  nh.getHardware()->setBaud(115200);
-  nh.initNode();
-  nh.advertise(p);
+  Serial.begin(115200);
+
+  /*
+  while(!Serial.readBytes(
+      reinterpret_cast<uint8_t*>(&desired_cycle_duration_ms), sizeof(UpdatePeriodMs))){
+  };*/
+  desired_cycle_duration_ms = 1000;
 }
 
 //We average the analog reading to elminate some of the noise
 uint16_t averageAnalog(int pin)
 {
   // 10 Bit analog resolution, 16 bit sample size, so we have more space
-  static constexpr uint8_t average_samples = pow(2, 16-10);
+  static constexpr uint8_t average_samples = 64; //pow(2, 16-10);
   uint16_t v = 0;
   for (uint16_t i = 0; i < average_samples; i++)
     v += analogRead(pin); // / average_samples;
@@ -38,16 +41,12 @@ uint16_t averageAnalog(int pin)
 
 void loop()
 {
-  static bool led = false;
-  digitalWrite(13, led);
-  led = !led;
-  
-  adc_msg.adc0 = averageAnalog(A0);
-  adc_msg.adc1 = digitalRead(2);
-  adc_msg.adc2 = digitalRead(3);
+  frame.analog0 = averageAnalog(INPUT);
+  frame.analog1 = 0xFFFF;
+  frame.digital0_8.as_bit.bit0 = digitalRead(2);
+  frame.digital0_8.as_bit.bit1 = digitalRead(3);
 
-  p.publish(&adc_msg);
+  Serial.write(reinterpret_cast<uint8_t*>(&frame), sizeof(head_mcu::Frame));
 
-  nh.spinOnce();
-  delay(5);
+  delay(desired_cycle_duration_ms); //roughly
 }
