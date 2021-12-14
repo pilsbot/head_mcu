@@ -21,11 +21,9 @@ void setup()
 
   Serial.begin(115200);
 
-  /*
   while(!Serial.readBytes(
       reinterpret_cast<uint8_t*>(&desired_cycle_duration_ms), sizeof(UpdatePeriodMs))){
-  };*/
-  desired_cycle_duration_ms = 1000;
+  };
 }
 
 //We average the analog reading to elminate some of the noise
