@@ -11,6 +11,8 @@
 #include <unistd.h>
 #include <csignal>
 #include <math.h>
+#include <string.h>
+#include <arpa/inet.h>
 
 struct Parameter {
   std::string devicename;
@@ -51,29 +53,36 @@ void set_serial_properties() {
   case 460800: cfsetospeed(&tio, B460800); break;
   case 500000: cfsetospeed(&tio, B500000); break;
   default:
-    printf("Baudrate of %d not supported, using 115200!", params_.baud_rate);
+    printf("Baudrate of %d not supported, using 115200!\n", params_.baud_rate);
     cfsetospeed(&tio, B115200);
     break;
   }
   cfsetispeed(&tio, cfgetospeed(&tio));
 
   if(tcsetattr(serial_fd_, TCSANOW, &tio) < 0) {
-    printf("Could not set terminal attributes!");
+    printf("Could not set terminal attributes!\n");
     perror("tcsetattr");
   }
 }
 
 void set_update_period_of_target(head_mcu::UpdatePeriodMs period_ms) {
-  if(::write(serial_fd_, &period_ms, sizeof(head_mcu::UpdatePeriodMs)) < 0){
-    printf("could not set update period of %d ms", period_ms);
+  head_mcu::Command cmd;
+  memset(&cmd, 0, sizeof(decltype(cmd)));
+
+  cmd.magic = head_mcu::Command::MAGIC;
+  cmd.type = head_mcu::Command::setUpdatePeriod;
+  cmd.updatePeriod_ms = ::htons(period_ms);
+
+  if(::write(serial_fd_, &cmd, sizeof(decltype(cmd))) < 0){
+    printf("could not set update period of %d ms\n", period_ms);
+    return;
   }
-  printf("Probably successfully set update period of %d ms", period_ms);
+  printf("Probably successfully set update period of %d ms\n", period_ms);
 }
 
 void read_serial() {
   set_update_period_of_target(std::ceil(1000/params_.publish_rate));
 
-  printf("serial connection thread started");
   while (true)
   {
     head_mcu::Frame frame;
@@ -85,6 +94,7 @@ void read_serial() {
       std::cout << "\tAngle1: " << state_.analog1 << std::endl;
       std::cout << "\tEnd  L: " << (state_.digital0_8.as_bit.bit0 ? "I" : "-") << std::endl;
       std::cout << "\tEnd  R: " << (state_.digital0_8.as_bit.bit1 ? "I" : "-") << std::endl;
+      std::cout << "\tPinOut: " << (state_.digital0_8.as_bit.bit2 ? "I" : "-") << std::endl;
 
     } else if(ret > 0)
     {
@@ -97,12 +107,28 @@ void read_serial() {
   }
 }
 
+void set_pin(const bool val)
+{
+  head_mcu::Command cmd;
+  memset(&cmd, 0, sizeof(decltype(cmd)));
+
+  cmd.magic = head_mcu::Command::MAGIC;
+  cmd.type = head_mcu::Command::setOutputFrame;
+  cmd.frame.digital0_8.as_bit.bit2 = val;
+
+  if(::write(serial_fd_, &cmd, sizeof(decltype(cmd))) < 0){
+    printf("could not set pin to %s ms\n", val ? "on" : "off");
+    return;
+  }
+  printf("Probably successfully set pin to %s ms\n", val ? "on" : "off");
+}
+
 int main(int argc, char** argv)
 {
   // TODO: Make parameter
   params_.devicename = "/dev/ttyACM0";
   params_.baud_rate = 115200;
-  params_.publish_rate = 10;
+  params_.publish_rate = 1000;
 
   if(params_.publish_rate <= 0)
   {
@@ -114,10 +140,12 @@ int main(int argc, char** argv)
     throw std::runtime_error("Could not open serial port " + params_.devicename);
   }
 
+  set_pin(true);
+
   while (true)
   {
     set_serial_properties();
-    printf("Opened device %s with baudrate %d", params_.devicename.c_str(),params_.baud_rate);
+    printf("Opened device %s with baudrate %d\n", params_.devicename.c_str(),params_.baud_rate);
 
     read_serial();
 

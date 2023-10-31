@@ -4,8 +4,6 @@
 
 namespace head_mcu {
 
-typedef uint16_t UpdatePeriodMs;
-
 struct __attribute((__packed__)) Frame {
   uint16_t analog0;
   uint16_t analog1;
@@ -24,8 +22,25 @@ struct __attribute((__packed__)) Frame {
   } digital0_8;
 };
 
+typedef uint16_t UpdatePeriodMs;
+
+struct __attribute((__packed__)) Command {
+  static constexpr uint16_t MAGIC = 0xAFFE;
+  uint16_t magic;
+  enum Type : uint8_t
+  {
+    setUpdatePeriod = 0,
+    setOutputFrame
+  } type;
+  union __attribute((__packed__)) {
+    Frame frame;
+    UpdatePeriodMs updatePeriod_ms;
+  };
+};
+
 }
 
 //char (*__kaboom)[sizeof( head_mcu::Frame )] = 1;
 
 static_assert(sizeof(head_mcu::Frame) == 5, "yo");
+static_assert(sizeof(head_mcu::Command) == sizeof(head_mcu::Frame) + 3, "oy");
