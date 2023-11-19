@@ -140,9 +140,9 @@ void read_serial() {
 int main(int argc, char** argv)
 {
   // TODO: Make parameter
-  params_.devicename = "/dev/ttyACM0";
+  params_.devicename = "/dev/ttyACM1";
   params_.baud_rate = 115200;
-  params_.publish_rate = 30;
+  params_.publish_rate = 5;
 
   if(params_.publish_rate <= 0)
   {
