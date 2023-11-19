@@ -14,6 +14,8 @@
 #include <string.h>
 #include <arpa/inet.h>
 
+#include <chrono>
+
 struct Parameter {
   std::string devicename;
   unsigned baud_rate;
@@ -80,16 +82,36 @@ void set_update_period_of_target(head_mcu::UpdatePeriodMs period_ms) {
   printf("Probably successfully set update period of %d ms\n", period_ms);
 }
 
-void read_serial() {
-  set_update_period_of_target(std::ceil(1000/params_.publish_rate));
+void set_pin(const bool val)
+{
+  head_mcu::Command cmd;
+  memset(&cmd, 0, sizeof(decltype(cmd)));
 
+  cmd.magic = head_mcu::Command::MAGIC;
+  cmd.type = head_mcu::Command::setOutputFrame;
+  cmd.frame.digital0_8.as_bit.bit2 = val;
+
+  if(::write(serial_fd_, &cmd, sizeof(decltype(cmd))) < 0){
+    printf("could not set pin to %s ms\n", val ? "on" : "off");
+    return;
+  }
+  printf("Probably successfully set pin to %s\n", val ? "on" : "off");
+}
+
+void read_serial() {
+  set_update_period_of_target(std::ceil(1000./params_.publish_rate));
+
+  unsigned i = 0;
+  using namespace std::chrono;
+  milliseconds last_update = duration_cast<milliseconds>(system_clock::now().time_since_epoch());
+  milliseconds now = last_update;
   while (true)
   {
     head_mcu::Frame frame;
     int ret = ::read(serial_fd_, &frame, sizeof(head_mcu::Frame));
     if(ret == sizeof(head_mcu::Frame)) {
       state_ = frame;
-
+      now = duration_cast<milliseconds>(system_clock::now().time_since_epoch());
       std::cout << "\tAngle0: " << state_.analog0 << std::endl;
       std::cout << "\tAngle1: " << state_.analog1 << std::endl;
       std::cout << "\tEnd  L: " << (state_.digital0_8.as_bit.bit0 ? "I" : "-") << std::endl;
@@ -104,23 +126,15 @@ void read_serial() {
       printf("serial connection closed or something: %d", ret);
       return;
     }
+
+    auto period = now - last_update;
+    if ((i++ & 0b11) == 0b11)
+    {
+      std::cout << "actual period currently: " << period.count() << " ms" << std::endl;
+      set_pin(i & 0b100);
+    }
+    last_update = now;
   }
-}
-
-void set_pin(const bool val)
-{
-  head_mcu::Command cmd;
-  memset(&cmd, 0, sizeof(decltype(cmd)));
-
-  cmd.magic = head_mcu::Command::MAGIC;
-  cmd.type = head_mcu::Command::setOutputFrame;
-  cmd.frame.digital0_8.as_bit.bit2 = val;
-
-  if(::write(serial_fd_, &cmd, sizeof(decltype(cmd))) < 0){
-    printf("could not set pin to %s ms\n", val ? "on" : "off");
-    return;
-  }
-  printf("Probably successfully set pin to %s ms\n", val ? "on" : "off");
 }
 
 int main(int argc, char** argv)
@@ -128,7 +142,7 @@ int main(int argc, char** argv)
   // TODO: Make parameter
   params_.devicename = "/dev/ttyACM0";
   params_.baud_rate = 115200;
-  params_.publish_rate = 1000;
+  params_.publish_rate = 30;
 
   if(params_.publish_rate <= 0)
   {
@@ -139,8 +153,6 @@ int main(int argc, char** argv)
   if(!open_serial_port()) {
     throw std::runtime_error("Could not open serial port " + params_.devicename);
   }
-
-  set_pin(true);
 
   while (true)
   {

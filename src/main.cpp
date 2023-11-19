@@ -10,8 +10,8 @@
 
 using namespace head_mcu;
 UpdatePeriodMs desired_cycle_duration_ms = 500;
-Frame frame;
 Command cmd;
+Frame frame;
 
 bool maybeConsumeCommand()
 {
@@ -33,7 +33,7 @@ bool maybeConsumeCommand()
   switch (cmd.type)
   {
     case Command::setUpdatePeriod:
-      desired_cycle_duration_ms = cmd.updatePeriod_ms;
+      desired_cycle_duration_ms = cmd.updatePeriod_ms / 256; // MCU is already BE
       break;
     case Command::setOutputFrame:
       frame = cmd.frame;
@@ -73,7 +73,7 @@ uint16_t averageAnalog(int pin)
 
 void loop()
 {
-  const uint16_t pre = millis();
+  const uint32_t pre = millis();
 
   maybeConsumeCommand();
 
@@ -84,7 +84,7 @@ void loop()
 
   Serial.write(reinterpret_cast<uint8_t*>(&frame), sizeof(head_mcu::Frame));
 
-  const uint16_t time_it_took = millis() - pre;
-  // min is for preventing integer underflow back to positive
-  delay(min(desired_cycle_duration_ms, desired_cycle_duration_ms - time_it_took));
+  const int32_t time_it_took = millis() - pre;
+  const int32_t ms_to_wait = *static_cast<volatile UpdatePeriodMs*>(&desired_cycle_duration_ms) - time_it_took;
+  delay(ms_to_wait < 0 ? 0 : ms_to_wait);
 }
